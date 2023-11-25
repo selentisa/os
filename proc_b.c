@@ -93,8 +93,8 @@ void *receive_message(void *arg)
             strcat(mess, shared_memory->mess1);
             sem_post(sem3);
         }
-
-        printf("message by proc A: %s\n", mess);
+        printf("\033[0;31mA: %s\n\033[0m\n", mess);
+        // printf("message by proc A: %s\n", mess);
 
         if (strcmp(shared_memory->mess1, "#BYE#") == 0)
         {
