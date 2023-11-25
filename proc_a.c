@@ -96,7 +96,8 @@ void *receive_message(void *arg)
             sem_post(sem4);
         }
 
-        printf("message by proc B: %s\n", mess);
+        printf("\033[0;31mB: %s\n\033[0m\n", mess);
+        // printf("message by proc B: %s\n", mess);
 
         if (strcmp(shared_memory->mess1, "#BYE#") == 0)
         {
