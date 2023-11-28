@@ -21,13 +21,14 @@ typedef struct
     char mess1[4];
     int mess1_size;
     char mess2[4];
-    int f;
+    // int f;
     int mess2_size;
 
 } SharedData;
 
 sem_t *sem1, *sem2, *sem3, *sem4, *sem5, *sem6;
 SharedData *shared_memory;
+int counter_messages_recv, counter_messages_send, counter_packages;
 
 int custom_strlen(const char *str)
 {
@@ -67,7 +68,7 @@ void *send_message(void *arg)
             // printf("finally! B posted sem3\n");
         }
         // shared_memory->f = 0;
-
+        counter_messages_send++;
         if (strcmp(temp, "#BYE#") == 0)
         {
 
@@ -91,18 +92,19 @@ void *receive_message(void *arg)
 
             sem_wait(sem1);
             strcat(mess, shared_memory->mess1);
+            counter_packages++;
             sem_post(sem3);
         }
         printf("\033[0;31mA: %s\n\033[0m\n", mess);
         // printf("message by proc A: %s\n", mess);
 
-        if (strcmp(shared_memory->mess1, "#BYE#") == 0)
+        if (strcmp(mess, "#BYE#") == 0)
         {
             printf("Terminating proc_b\n");
-
+            // shared_memory->f = 0;
             return NULL;
         }
-
+        counter_messages_recv;
         // sem_post(sem3);
     }
     return NULL;
@@ -125,11 +127,20 @@ int main()
     shared_memory = (SharedData *)mmap(0, SHARED_MEM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     // shared_memory->atob = 0;
 
+    counter_messages_recv = 0;
+    counter_messages_send = 0;
+    counter_packages = 0;
     pthread_create(&send_thread, NULL, send_message, NULL);
     pthread_create(&recv_thread, NULL, receive_message, NULL);
 
     pthread_join(send_thread, NULL);
     pthread_join(recv_thread, NULL);
+
+    printf("SUM OF MESSAGES RECEIVED BY A: %d\n", counter_messages_recv);
+    printf("SUM OF MESSAGES SENT BY A: %d\n", counter_messages_send);
+    printf("SUM OF PACKAGES RECEIVED BY A: %d\n", counter_packages);
+    float avg_package = (float)counter_packages / counter_messages_recv;
+    printf("AVERAGE PACKAGES PER MESSAGE: %.2f\n", avg_package);
 
     munmap(shared_memory, SHARED_MEM_SIZE);
     close(shm_fd);
