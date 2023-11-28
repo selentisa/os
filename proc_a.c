@@ -21,7 +21,7 @@ typedef struct
     char mess1[4];
     int mess1_size;
     char mess2[4];
-    // int f;
+    int f;
     int mess2_size;
 
 } SharedData;
@@ -42,7 +42,7 @@ int custom_strlen(const char *str)
 
 void *send_message(void *arg)
 {
-    while (1)
+    while (shared_memory->f)
     {
 
         char temp[256];
@@ -71,7 +71,7 @@ void *send_message(void *arg)
         counter_messages_send++;
         if (strcmp(temp, "#BYE#") == 0)
         {
-
+            shared_memory->f = 0;
             return NULL;
         }
 
@@ -82,7 +82,7 @@ void *send_message(void *arg)
 
 void *receive_message(void *arg)
 {
-    while (1)
+    while (shared_memory->f)
     {
 
         sem_wait(sem6);
@@ -104,7 +104,7 @@ void *receive_message(void *arg)
         if (strcmp(mess, "#BYE#") == 0)
         {
             // printf("Terminating proc_b\n");
-            // shared_memory->f = 0;
+            shared_memory->f = 0;
             return NULL;
         }
         counter_messages_recv;
@@ -128,7 +128,7 @@ int main()
     ftruncate(shm_fd, SHARED_MEM_SIZE);
     shared_memory = (SharedData *)mmap(0, SHARED_MEM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     // shared_memory->atob = 0;
-
+    shared_memory->f = 1;
     counter_messages_recv = 0;
     counter_messages_send = 0;
     counter_packages = 0;
