@@ -55,12 +55,12 @@ void *send_message(void *arg)
 
         sem_post(sem5);
 
-        for (int i = 0; i <= (size)-1; i += 3)
+        for (int i = 0; i <= (size)+1; i += 3)
         {
 
             strncpy(shared_memory->mess1, temp + i, 3);
 
-            shared_memory->mess1[3] = '\0';
+            //shared_memory->mess1[3] = '\0';
             // printf("mess1: %s\n", shared_memory->mess1);
             sem_post(sem1);
 
@@ -89,7 +89,7 @@ void *receive_message(void *arg)
         int size = shared_memory->mess2_size;
         char mess[256] = "";
 
-        for (int i = 0; i <= size - 1; i += 3)
+        for (int i = 0; i <= size + 1; i += 3)
         {
 
             sem_wait(sem2);
