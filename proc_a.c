@@ -30,13 +30,14 @@ sem_t *sem1, *sem2, *sem3, *sem4, *sem5, *sem6;
 SharedData *shared_memory;
 int counter_messages_recv, counter_messages_send, counter_packages;
 
-int custom_strlen(const char *str)
+int clean(char *str)
 {
     int len = 0;
     while (str[len] != '\0' && str[len] != '\n')
     {
         len++;
     }
+    str[len] = '\0';
     return len;
 }
 
@@ -48,20 +49,20 @@ void *send_message(void *arg)
         char temp[256];
 
         fgets(temp, sizeof(temp), stdin);
-        int size = custom_strlen(temp);
+        int size = clean(temp);
         shared_memory->mess1_size = size;
         // printf("size: %d\n", size);
         //  shared_memory->f = 1;
 
         sem_post(sem5);
 
-        for (int i = 0; i <= (size)+1; i += 3)
+        for (int i = 0; i <= (size); i += 3)
         {
 
             strncpy(shared_memory->mess1, temp + i, 3);
 
-            //shared_memory->mess1[3] = '\0';
-            // printf("mess1: %s\n", shared_memory->mess1);
+            // shared_memory->mess1[3] = '\0';
+            //  printf("mess1: %s\n", shared_memory->mess1);
             sem_post(sem1);
 
             sem_wait(sem3);
@@ -89,7 +90,7 @@ void *receive_message(void *arg)
         int size = shared_memory->mess2_size;
         char mess[256] = "";
 
-        for (int i = 0; i <= size + 1; i += 3)
+        for (int i = 0; i <= size; i += 3)
         {
 
             sem_wait(sem2);
