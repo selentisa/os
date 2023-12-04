@@ -1,45 +1,12 @@
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <semaphore.h>
-#include <string.h>
 #include <pthread.h>
+#include "shared_memory.h"
 
-#define SHARED_MEM_SIZE 10240
-#define SEM_NAME1 "/my_semaphore1"
-#define SEM_NAME2 "/my_semaphore2"
-#define SEM_NAME3 "/my_semaphore3"
-#define SEM_NAME4 "/my_semaphore4"
-#define SEM_NAME5 "/my_semaphore5"
-#define SEM_NAME6 "/my_semaphore6"
-
-typedef struct
-{
-    char mess1[4];
-    int mess1_size;
-    char mess2[4];
-    int f;
-    int mess2_size;
-
-} SharedData;
-
-sem_t *sem1, *sem2, *sem3, *sem4, *sem5, *sem6;
-SharedData *shared_memory;
 int counter_messages_recv, counter_messages_send, counter_packages;
-
-int clean(char *str)
-{
-    int len = 0;
-    while (str[len] != '\0' && str[len] != '\n')
-    {
-        len++;
-    }
-    str[len] = '\0';
-    return len;
-}
+double time_sum;
 
 void *send_message(void *arg)
 {
@@ -53,13 +20,13 @@ void *send_message(void *arg)
         shared_memory->mess1_size = size;
         // printf("size: %d\n", size);
         //  shared_memory->f = 1;
-
+        shared_memory->timestamp1 = time(NULL);
         sem_post(sem5);
 
-        for (int i = 0; i <= (size); i += 3)
+        for (int i = 0; i <= (size); i += 15)
         {
 
-            strncpy(shared_memory->mess1, temp + i, 3);
+            strncpy(shared_memory->mess1, temp + i, 15);
 
             // shared_memory->mess1[3] = '\0';
             //  printf("mess1: %s\n", shared_memory->mess1);
@@ -72,8 +39,12 @@ void *send_message(void *arg)
         counter_messages_send++;
         if (strcmp(temp, "#BYE#") == 0)
         {
+            printf("Process A is going to terminate\n");
+            // sem_post(sem5);
             shared_memory->f = 0;
-            return NULL;
+            counter_messages_recv--;
+            counter_packages--;
+            // pthread_cancel(*(pthread_t *)arg);
         }
 
         // sem_wait(sem3);
@@ -90,10 +61,15 @@ void *receive_message(void *arg)
         int size = shared_memory->mess2_size;
         char mess[256] = "";
 
-        for (int i = 0; i <= size; i += 3)
+        for (int i = 0; i <= size; i += 15)
         {
 
             sem_wait(sem2);
+            if (i == 0)
+            {
+                shared_memory->timestamp4 = time(NULL);
+                time_sum += difftime(shared_memory->timestamp2, shared_memory->timestamp4);
+            }
             strcat(mess, shared_memory->mess2);
             counter_packages++;
             sem_post(sem4);
@@ -101,67 +77,61 @@ void *receive_message(void *arg)
 
         printf("\033[0;31mB: %s\n\033[0m\n", mess);
         // printf("message by proc B: %s\n", mess);
-
+        counter_messages_recv++;
         if (strcmp(mess, "#BYE#") == 0)
         {
-            // printf("Terminating proc_b\n");
+            printf("Press Enter to terminate\n");
             shared_memory->f = 0;
-            return NULL;
+            counter_messages_send--;
+            break;
         }
-        counter_messages_recv;
+        // counter_messages_recv++;
     }
     return NULL;
 }
 
 int main()
 {
-    int shm_fd;
+    initialize_shared_memory();
+    initialize_semaphores();
+
     pthread_t send_thread, recv_thread;
 
-    sem1 = sem_open(SEM_NAME1, O_CREAT, 0666, 0);
-    sem2 = sem_open(SEM_NAME2, O_CREAT, 0666, 0);
-    sem3 = sem_open(SEM_NAME3, O_CREAT, 0666, 0);
-    sem4 = sem_open(SEM_NAME4, O_CREAT, 0666, 0);
-    sem5 = sem_open(SEM_NAME5, O_CREAT, 0666, 0);
-    sem6 = sem_open(SEM_NAME6, O_CREAT, 0666, 0);
-
-    shm_fd = shm_open("/my_shared_memory", O_CREAT | O_RDWR, 0666);
-    ftruncate(shm_fd, SHARED_MEM_SIZE);
-    shared_memory = (SharedData *)mmap(0, SHARED_MEM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
-    // shared_memory->atob = 0;
-    shared_memory->f = 1;
+    // Initialize other variables if needed
     counter_messages_recv = 0;
     counter_messages_send = 0;
     counter_packages = 0;
+    time_sum = 0.00;
+
+    // Create threads for sending and receiving messages
     pthread_create(&send_thread, NULL, send_message, NULL);
     pthread_create(&recv_thread, NULL, receive_message, NULL);
 
     pthread_join(send_thread, NULL);
     pthread_join(recv_thread, NULL);
 
+    printf("Process A finished\n");
+    printf("\n");
+    printf("\n");
+    printf("------------------------------  STATS  -------------------------------\n");
     printf("SUM OF MESSAGES RECEIVED BY A: %d\n", counter_messages_recv);
     printf("SUM OF MESSAGES SENT BY A: %d\n", counter_messages_send);
     printf("SUM OF PACKAGES RECEIVED BY A: %d\n", counter_packages);
+
     float avg_package = (float)counter_packages / counter_messages_recv;
     printf("AVERAGE PACKAGES PER MESSAGE: %.2f\n", avg_package);
 
-    munmap(shared_memory, SHARED_MEM_SIZE);
-    close(shm_fd);
-    sem_close(sem1);
-    sem_unlink(SEM_NAME1);
-    sem_close(sem2);
-    sem_unlink(SEM_NAME2);
+    double avg_time = time_sum / counter_messages_recv;
+    printf("AVERAGE WAITING TIME FOR THE 1ST PACKAGE TO ARRIVE: %f sec\n", avg_time);
+    printf("----------------------------------------------------------------------\n");
 
-    sem_close(sem3);
-    sem_unlink(SEM_NAME3);
-    sem_close(sem4);
-    sem_unlink(SEM_NAME4);
+    printf("\n");
+    printf("\n");
+    char buffer[100];
 
-    sem_close(sem5);
-    sem_unlink(SEM_NAME5);
+    printf("Press ENTER for exit: ");
+    fgets(buffer, sizeof(buffer), stdin);
 
-    sem_close(sem6);
-    sem_unlink(SEM_NAME6);
-
+    cleanup();
     return 0;
 }
